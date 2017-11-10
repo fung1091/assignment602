@@ -35,7 +35,7 @@
       {% endfor %}
     </td>
     <td width=50%>
-      <p><input type=submit name="chart" value="Get Price and Chart History">
+      <p><input type=submit name="chart" value="Price ">
       <p><input type=submit name="chart" value="Buy">
       </p>
     </td>
@@ -46,18 +46,7 @@
 
 {% if result != None %}
 <table>
-  <tr>
-    <td width=50%>
-      {% if result != None %}
-      <h4>Last 90 Days:</h4>
-      {% endif %}
-    </td>
-    <td width=50%>
-      {% if result != None %}
-      <h4>Analytics</h4>
-      {% endif %}
-    </td>
-  </tr>
+
   <tr>
     <td>
       {% if result != None %}
