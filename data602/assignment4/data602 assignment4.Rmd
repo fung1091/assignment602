@@ -1,0 +1,498 @@
+---
+title: "data602 assignment4"
+author: "jim lung"
+date: "11-09-2017"
+output: html_document
+---
+
+# data602 assignment4
+
+Deliverable: A url to a private repository on Github with the R script
+
+Note: Docker image is not required for assignment #4
+
+Take at least two of the time-series analytics performed in assignment #2 (listed below) and redo it in R. The time-series you can choose from are
+
+5 day moving average
+20 day moving average
+5 day moving standard deviation
+20 day moving standard deviation
+Bollinger bands 2 standard deviation
+Daily returns %
+Daily return mean %
+Price range for the day (bars)
+Daily price difference
+Distribution of prices (Gaussian distribution, aka bell curve)
+
+Load the data that is sitting on a publicly available site via a URL  (i.e. Dropbox, S3, public Github - only the data can be public), the data does not need to be in a database and can be static. The larger the dataset the better. Feel free to add your own time-series in addition to choosing 2 from above.
+
+For this assignment, a Docker image is not required, only a link to a private Github repo containing the R script that can be executed and produces results without any setup
+
+
+
+## Scraping and analysis:
+
+```{r}
+library(rvest)
+library(RCurl)
+library(XML)
+```
+
+## Create function for scraping data from web
+```{r}
+
+ddd <- function(i){
+
+
+hkurl <- i
+
+'ratings' <- function(hkurl)
+  {
+  require(XML)
+
+hdoc <- getURLContent(hkurl)
+
+# find all tables in webpage
+hktables <- readHTMLTable(hdoc)
+
+# find largest table and return as dataframe
+columns <- unlist(lapply(hktables, function(t) dim(t)[2]))
+ 
+df <- hktables[[max(columns)]]
+ 
+return(df)
+}
+
+seriess <- ratings(hkurl)
+colnames(seriess) <- c("Date","Open","High","Low","Close","Volume")
+seriess
+return(seriess)
+}
+
+
+```
+
+## Create Dataframe by using function
+```{r}
+# Real time data for aapl
+aapl3 <- ddd('http://www.nasdaq.com/symbol/aapl/historical')
+head(aapl3)
+
+# Real time data for amzn
+amzn3 <- ddd('http://www.nasdaq.com/symbol/amzn/historical')
+head(amzn3)
+
+# Real time data for intc
+intc3 <- ddd('http://www.nasdaq.com/symbol/intc/historical')
+head(intc3)
+
+# Real time data for msft
+msft3 <- ddd('http://www.nasdaq.com/symbol/msft/historical')
+head(msft3)
+
+# Real time data for snap
+snap3 <- ddd('http://www.nasdaq.com/symbol/snap/historical')
+head(snap3)
+
+```
+
+## Replace text of today and remove comma
+```{r}
+# Get the text of today
+library(lubridate)
+date <- today()
+newdate <- strptime(as.character(date), "%Y-%m-%d")
+txtdate <- format(newdate, "%m/%d/%Y")
+txtdate
+
+# remove comma fuction
+removeComma= function(s) {gsub(",", "", s, fixed = TRUE)}
+```
+
+## Function of calcuation of analysis
+```{r}
+abc <- function(z){
+#colnames(z) <- c("Date","Open","High","Low","Close","Volume")
+z$Date <- as.character(z$Date)
+z$Open <- round(as.numeric(as.character(z$Open)),2)
+z$High <- round(as.numeric(as.character(z$High)),2)
+z$Low <- round(as.numeric(as.character(z$Low)),2)
+z$Close <- round(as.numeric(as.character(z$Close)),2)
+z$Volume <- as.numeric(as.character(removeComma(z$Volume)))
+z[1,1] <- txtdate
+
+z$change <- z$Close - z$Open
+z$rating_change <- z$change / z$Open
+z$date_range <- z$High - z$Low
+z
+}
+
+
+aapl3 <- abc(aapl3)
+head(aapl3) 
+amzn3 <- abc(amzn3)
+head(amzn3)
+intc3 <- abc(intc3)
+head(intc3)
+msft3 <- abc(msft3)
+head(msft3)
+snap3 <- abc(snap3)
+head(snap3)
+```
+
+## Cleaning and Analysis 1 - Index comparsion
+```{r}
+library(tidyr)
+library(dplyr)
+aapl4 <- aapl3 %>% select(Date, Close)
+colnames(aapl4) <- c("Date","AAPL")
+amzn4 <- amzn3 %>% select(Date, Close)
+colnames(amzn4) <- c("Date","AMZN")
+intc4 <- intc3 %>% select(Date, Close)
+colnames(intc4) <- c("Date","INTC")
+msft4 <- msft3 %>% select(Date, Close)
+colnames(msft4) <- c("Date","MSFT")
+snap4 <- snap3 %>% select(Date, Close)
+colnames(snap4) <- c("Date","SNAP")
+
+# Group and visualization
+x <- inner_join(aapl4,amzn4)
+y <- inner_join(x,intc4)
+z <- inner_join(y,msft4)
+analysis1 <- inner_join(z,snap4) 
+analysis2 <- analysis1 %>% gather(company, index, 2:6)
+head(analysis1)
+head(analysis2)
+
+```
+
+## Stock index comparsion
+
+```{r}
+library(ggplot2)
+
+graph1 <- ggplot(data=analysis2,
+          aes(x=Date, y=index, group=company)) +
+          geom_point(size=3, aes(shape=company, color=company)) +
+          geom_line(size=1, aes(color=company)) +
+          ggtitle("Profiles for stock index comparsion")
+graph1
+```
+
+# 5 day Moving Average
+```{r}
+# function for moving average
+ma <- function(arr, n){
+  res = arr
+  for(i in n:length(arr)){
+    res[i] = mean(arr[(i-n+1):i])
+  }
+  res
+}
+
+# Using close price to compare
+aapl5 <- aapl3 %>% select(Date, Close)
+colnames(aapl5) <- c("Date","AAPL")
+amzn5 <- amzn3 %>% select(Date, Close)
+colnames(amzn5) <- c("Date","AMZN")
+intc5 <- intc3 %>% select(Date, Close)
+colnames(intc5) <- c("Date","INTC")
+msft5 <- msft3 %>% select(Date, Close)
+colnames(msft5) <- c("Date","MSFT")
+snap5 <- snap3 %>% select(Date, Close)
+colnames(snap5) <- c("Date","SNAP")
+
+# Calculate 5 days Moving Average
+aapl5$AAPL_SMA <- ma(aapl5$AAPL, 5)
+aapl6 <- aapl5 %>% select(Date, AAPL_SMA)
+
+amzn5$AMZN_SMA <- ma(amzn5$AMZN, 5)
+amzn6 <- amzn5 %>% select(Date, AMZN_SMA)
+
+intc5$INTC_SMA <- ma(intc5$INTC, 5)
+intc6 <- intc5 %>% select(Date, INTC_SMA)
+
+msft5$MSFT_SMA <- ma(msft5$MSFT, 5)
+msft6 <- msft5 %>% select(Date, MSFT_SMA)
+
+snap5$SNAP_SMA <- ma(snap5$SNAP, 5)
+snap6 <- snap5 %>% select(Date, SNAP_SMA)
+
+
+# Group and visualization
+x <- inner_join(aapl6,amzn6)
+y <- inner_join(x,intc6)
+z <- inner_join(y,msft6)
+analysis3 <- inner_join(z,snap6) 
+analysis4 <- analysis3 %>% gather(company, index, 2:6)
+head(analysis3)
+head(analysis4)
+
+# 5 days Moving average comparison
+graph2 <- ggplot(data=analysis4,
+          aes(x=Date, y=index, group=company)) +
+          geom_point(size=3, aes(shape=company, color=company)) +
+          geom_line(size=1, aes(color=company)) +
+          ggtitle("5 days Moving average comparison")
+graph2
+```
+
+# 20 days Moving Average
+```{r}
+# Using close price to compare
+aapl7 <- aapl3 %>% select(Date, Close)
+colnames(aapl7) <- c("Date","AAPL")
+amzn7 <- amzn3 %>% select(Date, Close)
+colnames(amzn7) <- c("Date","AMZN")
+intc7 <- intc3 %>% select(Date, Close)
+colnames(intc7) <- c("Date","INTC")
+msft7 <- msft3 %>% select(Date, Close)
+colnames(msft7) <- c("Date","MSFT")
+snap7 <- snap3 %>% select(Date, Close)
+colnames(snap7) <- c("Date","SNAP")
+
+# Calculate 20 days Moving Average
+aapl7$AAPL_SMA <- ma(aapl7$AAPL, 20)
+aapl8 <- aapl7 %>% select(Date, AAPL_SMA)
+
+amzn7$AMZN_SMA <- ma(amzn7$AMZN, 20)
+amzn8 <- amzn7 %>% select(Date, AMZN_SMA)
+
+intc7$INTC_SMA <- ma(intc7$INTC, 20)
+intc8 <- intc7 %>% select(Date, INTC_SMA)
+
+msft7$MSFT_SMA <- ma(msft7$MSFT, 20)
+msft8 <- msft7 %>% select(Date, MSFT_SMA)
+
+snap7$SNAP_SMA <- ma(snap7$SNAP, 20)
+snap8 <- snap7 %>% select(Date, SNAP_SMA)
+
+
+# Group and visualization
+x <- inner_join(aapl8,amzn8)
+y <- inner_join(x,intc8)
+z <- inner_join(y,msft8)
+analysis5 <- inner_join(z,snap8) 
+analysis6 <- analysis5 %>% gather(company, index, 2:6)
+head(analysis5)
+head(analysis6)
+
+# 20 days Moving average comparison
+graph2 <- ggplot(data=analysis6,
+          aes(x=Date, y=index, group=company)) +
+          geom_point(size=3, aes(shape=company, color=company)) +
+          geom_line(size=1, aes(color=company)) +
+          ggtitle("20 days Moving average comparison")
+graph2
+
+```
+
+# visualization for 3 months
+```{r}
+library(ggplot2)
+
+aapl9 <- subset(aapl8, Date < "12-01-2017" & Date > "08-22-2017")
+x <- ggplot(data = aapl9,  aes(x=Date, y=AAPL_SMA)) + geom_line(col="blue") + geom_point(col="blue", pch=1)
+x
+amzn9 <- subset(amzn8, Date < "12-01-2017" & Date > "08-22-2017")
+x <- ggplot(data = amzn9,  aes(x=Date, y=AMZN_SMA)) + geom_line(col="blue") + geom_point(col="blue", pch=1)
+x
+intc9 <- subset(intc8, Date < "12-01-2017" & Date > "08-22-2017")
+x <- ggplot(data = intc9,  aes(x=Date, y=INTC_SMA)) + geom_line(col="blue") + geom_point(col="blue", pch=1)
+x
+msft9 <- subset(msft8, Date < "12-01-2017" & Date > "08-22-2017")
+x <- ggplot(data = msft9,  aes(x=Date, y=MSFT_SMA)) + geom_line(col="blue") + geom_point(col="blue", pch=1)
+x
+snap9 <- subset(snap8, Date < "12-01-2017" & Date > "08-22-2017")
+x <- ggplot(data = snap9,  aes(x=Date, y=SNAP_SMA)) + geom_line(col="blue") + geom_point(col="blue", pch=1)
+x
+```
+
+
+# Market Price
+```{r}
+library(rvest)
+library(XML)
+
+sym <- function(i){
+url <- paste('http://www.nasdaq.com/symbol/',i,'/',sep="")
+html <- read_html(url)
+body_text <- html %>%
+        html_nodes("#qwidget_lastsale") %>% 
+        html_text()
+
+body_text <- as.numeric(sub('\\$','',body_text))
+print(body_text)
+}
+
+# use "amzn" as example to run program
+sym('amzn')
+
+```
+
+# Create new trade file into CSV
+```{r}
+# create new dataframe
+trade <-data.frame("Side"=character(), "Ticker"=character(), "Quantity"=integer(0), "Price"=integer(0), "Date"=integer(),stringsAsFactors = FALSE)
+
+
+
+# save dataframe as csv file
+write.table(trade, file = "trade.csv", sep = ",", col.names = NA, qmethod = "double")
+read.table("trade.csv", header = TRUE, sep = ",") 
+```
+# Add sell or buy record into CSV file
+```{r}
+library(dplyr)
+#import csv 
+x <- read.csv("trade.csv", header = TRUE, sep = ",") 
+
+############### in case to ask for buy or sell, and check the balance
+
+
+#side <- readline(prompt="Buy or Sell: ")
+#ticker <- readline(prompt="ticker: ")
+#quantity <- readline(prompt="quantity: ")
+
+# convert character into integer
+#quantity <- as.integer(quantity)
+
+#print(paste("You", side,quantity,"stock of", ticker, "."))
+
+#marketvalue = sym(ticker)
+#buyvalue = marketvalue * quantity
+
+#if (side == 'buy'){
+#  if (cashbal < buyvalue){
+#    print("No cash to buy!")
+#  } else {
+#    x[nrow(x) +1,] <- c(nrow(x)+1, side , ticker , quantity, marketvalue, Sys.Date())
+#  }
+#}
+
+###########
+
+# add new transaction(example buy and sell, amzn, 30, 1000.46)
+x[nrow(x) +1,] <- c(nrow(x)+1,'buy', 'amzn', 30, 1000.46, Sys.Date())
+x[nrow(x) +1,] <- c(nrow(x)+1,'sell', 'amzn', 15, 1100.00, Sys.Date())
+
+# tidy dataframe
+trade = select(x, -1)
+
+
+# re-write and save over the previous data
+write.table(trade, file = "trade.csv", sep = ",", col.names = NA, qmethod = "double")
+read.table("trade.csv", header = TRUE, sep = ",") 
+
+```
+
+
+# Balance of stock
+```{r}
+# check position
+blotter <- read.csv("trade.csv", header = TRUE, sep = ",") 
+w =nrow(blotter)
+w
+
+# Postition
+q <- unique(blotter$Ticker)
+
+b=0
+d=0
+e=0
+f=0
+balance <-data.frame("Ticker"=character(), "Quantity"=integer(0), "Price"=integer(0),stringsAsFactors = FALSE)
+
+
+for (j in q){
+for (i in 1:w){
+if(blotter$Side[i] == 'buy' & blotter$Ticker[i] == j){
+  a = sum(blotter$Quantity[i])
+  b = b + a
+  e = e + blotter$Price[i]*blotter$Quantity[i]
+  }
+if(blotter$Side[i] == 'sell' & blotter$Ticker[i] == j){
+  c = sum(blotter$Quantity[i])
+  d = d + c
+  f = f + blotter$Price[i]*blotter$Quantity[i]
+}
+  bal = b-d
+  avg = e/a
+  print(bal)
+
+}
+balance <- rbind(balance, data.frame("Ticker"=q, "Quantity"=bal, "Price"=avg))
+balance <- na.omit(balance)
+}
+balance
+
+```
+
+# P/L
+```{r}
+#z
+pl <-data.frame("Ticker"=character(), "Position"=integer(0), "Market"=integer(0), "WAP"=integer(0), "UPL"=integer(0), "RPL"=integer(0),stringsAsFactors = FALSE)
+
+# Ticker and Market price
+h = nrow(balance)
+
+k <- unique(balance$Ticker)
+upl = 0
+rpl = 0
+
+for (i in h){
+  l = balance$Ticker[i]
+  m = balance$Quantity[i]
+  n = balance$Price[i]
+  y <- as.vector(l)
+  o = sym(y)
+  marketp = o
+  if (marketp > n){
+    upl = (marketp-n)*m
+    rpl = 0
+    upl
+  }else{
+    rpl = (n-marketp)*m
+    upl = 0
+    rpl
+  }
+  #total = upl + rpl
+  #share = m/sum(pl$Position)
+  #dollar = marketp/sum(pl$Market)
+}
+pl <- rbind(pl, data.frame("Ticker"=k, "Position"=m, "Market"=o, "WAP"=n, "UPL"=upl, "RPL"=rpl))
+
+total = upl + rpl
+share = m/sum(pl$Position)
+dollar = marketp/sum(pl$Market)
+
+pl$Total = total
+pl$Allocationshare = share
+pl$Allocationmarket = dollar
+pl
+
+# WAP
+
+```
+
+
+# check cashbalance
+```{r}
+blotter <- read.csv("trade.csv", header = TRUE, sep = ",") 
+
+w =nrow(blotter)
+
+z = 100000
+p = 0
+q = 0
+for(i in 1:w){
+  if (blotter$Side[i] == 'buy'){
+    p = p + blotter$Price[i]*blotter$Quantity[i]
+  }
+  if (blotter$Side[i] == 'sell'){
+    q = q + blotter$Price[i]*blotter$Quantity[i]
+  }
+}
+cashbal = z-p+q
+cashbal
+```
