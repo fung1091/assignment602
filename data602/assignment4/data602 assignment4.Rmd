@@ -333,7 +333,7 @@ sym('amzn')
 # Create new trade file into CSV
 ```{r}
 # create new dataframe
-trade <-data.frame("Side"=character(), "Ticker"=character(), "Quantity"=integer(0), "Price"=integer(0), "Date"=integer(),stringsAsFactors = FALSE)
+trade <-data.frame("Side"=character(), "Ticker"=character(), "Quantity"=integer(0), "Price"=integer(0), "Date"=character(),stringsAsFactors = FALSE)
 
 
 
@@ -373,8 +373,8 @@ x <- read.csv("trade.csv", header = TRUE, sep = ",")
 ###########
 
 # add new transaction(example buy and sell, amzn, 30, 1000.46)
-x[nrow(x) +1,] <- c(nrow(x)+1,'buy', 'amzn', 30, 1000.46, Sys.Date())
-x[nrow(x) +1,] <- c(nrow(x)+1,'sell', 'amzn', 15, 1100.00, Sys.Date())
+x[nrow(x) +1,] <- c(nrow(x)+1,'buy', 'amzn', 30, 1000.46, txtdate)
+x[nrow(x) +1,] <- c(nrow(x)+1,'sell', 'amzn', 15, 1100.00, txtdate)
 
 # tidy dataframe
 trade = select(x, -1)
